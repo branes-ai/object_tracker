@@ -1,4 +1,6 @@
 import cv2
+import torch
+
 from object_tracker.single_camera_tracker import SingleCameraTracker
 
 def open_source(src):
@@ -14,6 +16,10 @@ def main(source=0, out=None):
     sct = SingleCameraTracker(
         od_name="yolo",             # or 'detr'
         tracker_kwargs=dict(max_age=50, iou_thres=0.4, appearance_thres=0.5),
+        compile_od=True,  # compile YOLO model to TorchScript
+        compile_reid=True,  # compile ReID model to TorchScript
+        # device=torch.device("mps" if torch.mps.is_available() else "cpu"),
+
     )
 
     while True:

@@ -40,15 +40,18 @@ class SingleCameraTracker:
         *,
         od_name: str = "yolo",
         reid_name: str = "clip",
+        compile_od: bool | dict[str, Any] = False,
+        compile_reid: bool | dict[str, Any] = False,
         od_kwargs: dict[str, Any] | None = None,
         reid_kwargs: dict[str, Any] | None = None,
         tracker_kwargs: dict[str, Any] | None = None,
+        device: str | torch.device | None = None,
     ) -> None:
         # models ------------------------------------------------------------- #
-        self.od = ODModel(od_name, **(od_kwargs or {}))
-        self.reid = ReIDModel(reid_name, **(reid_kwargs or {}))
-        tracker_kwargs = tracker_kwargs or {}
-        self.tracker = DeepSort(self.reid, **tracker_kwargs)
+        self.od = ODModel(od_name, compile_model=compile_od,device=device, **(od_kwargs or {}),)
+        self.reid = ReIDModel(reid_name, compile_model=compile_reid,device=device)
+
+        self.tracker = DeepSort(self.reid, **(tracker_kwargs or {}))
 
     # --------------------------------------------------------------------- #
 
