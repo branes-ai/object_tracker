@@ -13,7 +13,7 @@ from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 
-from object_tracker.single_camera_tracker import SingleCameraTracker
+from branes_platform.applications.object_trackers.single_camera_tracker import SingleCameraTracker
 
 __all__ = ["MultiCameraTracker"]
 

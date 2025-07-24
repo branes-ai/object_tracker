@@ -22,11 +22,13 @@ import torch
 from filterpy.kalman import KalmanFilter
 from scipy.optimize import linear_sum_assignment
 
-from object_tracker.deep_learning_models import ReIDModel  # type: ignore – same package
 
 __all__ = [
     "DeepSort",
 ]
+
+from branes_platform.nn.reid.reid import ReIDModel
+
 
 # --------------------------------------------------------------------------- #
 #                         helpers – IoU, NMS, sanity                           #

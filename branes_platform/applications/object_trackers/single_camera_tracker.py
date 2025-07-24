@@ -13,8 +13,10 @@ import cv2
 import numpy as np
 import torch
 
-from object_tracker.deep_learning_models import ODModel, ReIDModel
-from object_tracker.deepsort  import DeepSort, _valid_box
+from branes_platform.nn.object_detection.deep_learning_models import ODModel
+from branes_platform.nn.reid.reid import ReIDModel
+
+from branes_platform.pipelines.object_trackers.deepsort import DeepSort, _valid_box
 
 __all__ = [
     "SingleCameraTracker",

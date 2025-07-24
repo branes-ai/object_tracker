@@ -4,9 +4,8 @@ import time
 from pathlib import Path
 
 import cv2
-import torch
 
-from object_tracker.single_camera_tracker import SingleCameraTracker
+from branes_platform.applications.object_trackers.single_camera_tracker import SingleCameraTracker
 
 
 # ────────────────────────────── helpers ────────────────────────────────────── #

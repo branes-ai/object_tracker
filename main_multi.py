@@ -23,8 +23,8 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-from object_tracker.single_camera_tracker import SingleCameraTracker
-from object_tracker.multi_camera_tracker import MultiCameraTracker
+from branes_platform.applications.object_trackers.single_camera_tracker import SingleCameraTracker
+from branes_platform.applications.object_trackers.multi_camera_tracker import MultiCameraTracker
 
 
 # --------------------------------------------------------------------------- #
