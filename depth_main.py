@@ -30,8 +30,8 @@ import numpy as np
 import torch
 
 # Adjust to your project layout if needed
-from branes_platform.nn.depth.depth_model import DepthModel
-from branes_platform.apps.depth.visualize_depth import depth_to_color
+from branes_platform.nn.depth.models import DepthModel
+from branes_platform.applications.distance.visualize_depth import depth_to_color
 
 def open_source(src: str) -> cv2.VideoCapture:
     return cv2.VideoCapture(int(src) if str(src).isdigit() else src)
