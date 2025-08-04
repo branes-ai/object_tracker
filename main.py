@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import cv2
+import rfdetr
 
 from branes_platform.applications.object_trackers.single_camera_tracker import SingleCameraTracker
 
@@ -49,8 +50,7 @@ def main():
     sct = SingleCameraTracker(
         od_name="yolo",
         tracker_kwargs=dict(max_age=50, iou_thres=0.4, appearance_thres=0.5),
-        compile_od=True,
-        compile_reid=True,
+
     )
 
     # 🔸 stats

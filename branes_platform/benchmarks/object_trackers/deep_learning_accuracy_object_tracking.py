@@ -30,7 +30,7 @@ from tqdm import tqdm
 # Adjust this import so that ODModel can be found on your PYTHONPATH            #
 # Example: from my_project.models import ODModel                                #
 # ----------------------------------------------------------------------------- #
-from branes_platform.nn.object_detection.deep_learning_models import ODModel  # <-- EDIT this to match where you placed the class
+from branes_platform.nn.object_detection.models import ODModel  # <-- EDIT this to match where you placed the class
 
 # --- optional auto-download ---------------------------------------------------
 COCO_VAL_URL   = "http://images.cocodataset.org/zips/val2017.zip"
@@ -92,16 +92,16 @@ def draw_boxes(img: np.ndarray,
 # --------------------------------------------------------------------- #
 def run_eval(
     model: str,
-    weight: str | None,
-    coco_root: str,
-    batch_size: int,
-    device: str,
-    conf_thres: float,
-    max_samples: int | None,
-    download: bool,
-    visualize: bool,
-    vis_out_dir: str,
-    vis_num: int,
+    weight: str = None,
+    coco_root: str = "./coco",
+    batch_size: int = 1,
+    device: str = 'cpu',
+    conf_thres: float = 0.001,
+    max_samples: int = None,
+    download: bool = False,
+    visualize: bool = False,
+    vis_out_dir: str = "./vis",
+    vis_num: int = 20,
 ):
     if download:
         download_coco(Path(coco_root))
@@ -129,6 +129,8 @@ def run_eval(
         collate_fn=collate_fn,
         num_workers=4,
         pin_memory=True,
+
+
     )
 
     torch_device = torch.device(device if torch.cuda.is_available() else "cpu")
@@ -180,6 +182,8 @@ def run_eval(
                            label2name, (0, 0, 255))
                 cv2.imwrite(str(vis_out / f"vis_{vis_count:04d}.jpg"), vis_img[:, :, ::-1])
                 vis_count += 1
+            break
+        break
 
     # --------------------------- Results ------------------------------ #
     print("\n-- COCO-2017 val results --")

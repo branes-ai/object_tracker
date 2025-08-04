@@ -29,7 +29,7 @@ from tqdm import tqdm
 # --------------------------------------------------------------------------- #
 #  Adjust this import so that ODModel is importable from your project path.   #
 # --------------------------------------------------------------------------- #
-from branes_platform.nn.object_detection.deep_learning_models import ODModel     # ← change if you placed the class elsewhere
+from branes_platform.nn.object_detection.models import ODModel     # ← change if you placed the class elsewhere
 
 
 # --------------------------------------------------------------------------- #

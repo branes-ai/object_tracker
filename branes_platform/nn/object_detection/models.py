@@ -17,6 +17,8 @@ __all__ = [
     "ODModel"
 ]
 
+from line_profiler import profile
+
 from branes_platform.nn.base import BranesModel
 
 

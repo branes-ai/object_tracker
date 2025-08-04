@@ -27,7 +27,7 @@ __all__ = [
     "DeepSort",
 ]
 
-from branes_platform.nn.reid.reid import ReIDModel
+from branes_platform.nn.reid.models import ReIDModel
 
 
 # --------------------------------------------------------------------------- #

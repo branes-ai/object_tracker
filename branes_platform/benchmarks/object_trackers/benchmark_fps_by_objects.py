@@ -32,7 +32,7 @@ from torchvision.datasets import CocoDetection
 # --------------------------------------------------------------------------- #
 #  Import your wrapper                                                        #
 # --------------------------------------------------------------------------- #
-from branes_platform.nn.object_detection.deep_learning_models import ODModel     # EDIT as needed
+from branes_platform.nn.object_detection.models import ODModel     # EDIT as needed
 from branes_platform.applications.object_trackers.single_camera_tracker import SingleCameraTracker
 
 
