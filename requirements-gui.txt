@@ -1,0 +1,3 @@
+# requirements-gui.txt - For development/Windows machines
+-r requirements-base.txt
+opencv-python=4.11.0.86
