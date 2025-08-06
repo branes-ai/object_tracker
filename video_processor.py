@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
                    help="force headless mode (no GUI)")
     p.add_argument("--gui", action="store_true",
                    help="force GUI mode (override auto-detection)")
-    p.add_argument("--max-frames", type=int, default=None,
+    p.add_argument("--max-frames", type=int, default=500,
                    help="maximum frames to process (useful for headless)")
     p.add_argument("--save-interval", type=int, default=None,
                    help="save frame images every N frames (headless mode)")
