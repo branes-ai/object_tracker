@@ -4,6 +4,8 @@ import sys
 import subprocess
 import logging
 
+# set the log level, otherwise only errors are reported as that is the base configuration of the root logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -25,6 +27,7 @@ def ensure_correct_opencv():
             # Try to create a dummy window to test GUI
             try:
                 cv2.namedWindow('test')
+                cv2.waitKey(1500)
                 cv2.destroyWindow('test')
                 logger.info("OpenCV with GUI support is working")
                 return cv2
@@ -99,3 +102,5 @@ class CV2Wrapper:
 
 # Export the wrapper
 cv2_wrapped = CV2Wrapper(cv2)
+
+print("Done...")
