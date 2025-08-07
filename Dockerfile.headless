@@ -1,0 +1,19 @@
+# Dockerfile.headless - for headless compute nodes
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install minimal dependencies for headless OpenCV
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir -r requirements-base.txt
+RUN pip install --no-cache-dir opencv-python-headless==4.10.0.84
+
+COPY . .
+CMD ["python", "main.py", "--headless"]
+
