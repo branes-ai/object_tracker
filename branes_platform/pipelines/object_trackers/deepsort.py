@@ -14,7 +14,7 @@ Usage example
 """
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union, Any
 from itertools import count
 
 import numpy as np
@@ -27,6 +27,7 @@ __all__ = [
     "DeepSort",
 ]
 
+from branes_platform.nn.object_detection.iree_model import ODModelIREE
 from branes_platform.nn.reid.models import ReIDModel
 
 
@@ -257,3 +258,23 @@ class DeepSort:
             x1, y1, x2, y2 = t.to_xyxy()
             outputs.append([x1, y1, x2, y2, float(t.id), float(t.hits)])
         return outputs
+
+class SingleCameraTrackerIREE(DeepSort):
+    """
+    Same user API, but backed by IREE-compiled YOLO & CLIP.
+    """
+    def __init__(self, *,
+                 od_vmfb: str = "yolov8n.vmfb",
+                 reid_vmfb: str = "clip_vitb32_224_cpu.vmfb",
+                 tracker_kwargs: dict[str,Any] | None = None,
+                 device: str | None = "cpu"):
+        self.od   = ODModelIREE(od_vmfb, device)
+        self.reid = ReIDModelIREE(reid_vmfb, device)
+        self.tracker = DeepSort(self.reid, **(tracker_kwargs or {}))
+
+    @torch.no_grad()
+    def update(self, frame_bgr: np.ndarray) -> List[List[float]]:
+        dets = self.od.predict(frame_bgr)
+        return self.tracker.update(frame_bgr, dets)
+
+    # optional draw() identical to your previous SCT
