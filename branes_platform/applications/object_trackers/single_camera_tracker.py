@@ -13,7 +13,9 @@ import cv2
 import numpy as np
 import torch
 
+from branes_platform.nn.object_detection.iree_model import ODModelIREE
 from branes_platform.nn.object_detection.models import ODModel
+from branes_platform.nn.reid.iree_model import ReIDModelIREE
 from branes_platform.nn.reid.models import ReIDModel
 
 from branes_platform.pipelines.object_trackers.deepsort import DeepSort, _valid_box
@@ -98,3 +100,24 @@ class SingleCameraTracker:
                     1,
                     cv2.LINE_AA,
                 )
+
+
+class SingleCameraTrackerIREE(SingleCameraTracker):
+    """
+    Same user API, but backed by IREE-compiled YOLO & CLIP.
+    """
+    def __init__(self, *,
+                 od_vmfb: str = "yolov8n.vmfb",
+                 reid_vmfb: str = "clip_vitb32_visual_cpu.vmfb",
+                 tracker_kwargs: dict[str,Any] | None = None,
+                 device: str | None = "cpu"):
+        self.od   = ODModelIREE(od_vmfb, device)
+        self.reid = ReIDModelIREE(reid_vmfb, device=device)
+        self.tracker = DeepSort(self.reid, **(tracker_kwargs or {}))
+
+    @torch.no_grad()
+    def update(self, frame_bgr: np.ndarray) -> List[List[float]]:
+        dets = self.od.predict(frame_bgr)
+        return self.tracker.update(frame_bgr, dets)
+
+    # optional draw() identical to your previous SCT
