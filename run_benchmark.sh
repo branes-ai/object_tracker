@@ -1,10 +1,10 @@
-# run_benchmark.sh
+#!/usr/bin/env python
+# run with the python currently in PATH (i.e., the current activated venv)
 
 # Double check you are getting the right virtual environment
-which python
+python --version
+# Double check the PyTorch environment
 python -c "import torch; print('Torch version:', torch.__version__)"
-exit 0
-
 
 # usage: benchmark_fps_by_objects.py [-h] [--od-model {yolo,detr}] [--reid-model REID_MODEL] [--weight WEIGHT] --coco-root COCO_ROOT [--device DEVICE] 
 #                                    [--conf-thres CONF_THRES=0.25] [--warmup-iters WARMUP_ITERS=3]
