@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env python
 # setup_opencv.sh - Install appropriate OpenCV based on environment
 
 # First, clean up any existing OpenCV installations

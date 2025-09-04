@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Rate Model Predictive Control Software Architectures</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fafafa;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .section {
+            background: white;
+            margin: 30px 0;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .diagram-section {
+            background: white;
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        
+        h4 {
+            color: #7f8c8d;
+            margin-top: 25px;
+        }
+        
+        .executive-summary {
+            background: #f8f9fa;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+        
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .arch-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+        }
+        
+        .arch-card h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .comparison-table {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .key-points {
+            background: #e8f4f8;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .key-points ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+            border-left: 5px solid #f39c12;
+        }
+        
+        .code-langs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .lang-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-top: 4px solid #e74c3c;
+        }
+        
+        .lang-card:last-child {
+            border-top-color: #f39c12;
+        }
+        
+        svg {
+            max-width: 100%;
+            height: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Multi-Rate Model Predictive Control</h1>
+        <h2 style="border: none; color: rgba(255,255,255,0.9); font-weight: 300; margin: 10px 0 0 0;">Software Architectures Analysis</h2>
+    </div>
+
+    <div class="section">
+        <h2>Executive Summary</h2>
+        <div class="executive-summary">
+            <strong>Key Finding:</strong> Multi-rate Model Predictive Control (MPC) systems require sophisticated software architectures to handle multiple time scales effectively. <strong>There is not just one software architecture</strong> for organizing this problem. Instead, there are at least four distinct architectural patterns, each with different strengths and trade-offs.
+        </div>
+        
+        <p>The choice of architecture depends on specific system requirements including real-time constraints, computational resources, system coupling, and development complexity tolerance. Most successful implementations use hybrid approaches that combine the best aspects of multiple architectural patterns.</p>
+    </div>
+
+    <div class="diagram-section">
+        <h2>Multi-Rate MPC Software Architectures Overview</h2>
+        <svg viewBox="0 0 1200 1600" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                </marker>
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.3"/>
+                </filter>
+            </defs>
+            
+            <!-- Title -->
+            <text x="600" y="30" text-anchor="middle" font-size="24" font-weight="bold" fill="#2c3e50">
+                Multi-Rate MPC Software Architectures
+            </text>
+            
+            <!-- Architecture 1: Hierarchical Time-Scale Separation -->
+            <g transform="translate(50, 70)">
+                <text x="250" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#34495e">
+                    1. Hierarchical Time-Scale Separation
+                </text>
+                
+                <!-- High-level MPC -->
+                <rect x="100" y="40" width="300" height="60" rx="8" fill="#3498db" filter="url(#shadow)"/>
+                <text x="250" y="65" text-anchor="middle" font-size="14" fill="white" font-weight="bold">High-Level MPC Controller</text>
+                <text x="250" y="85" text-anchor="middle" font-size="12" fill="white">Slow dynamics (Ts = 100ms - 1s)</text>
+                
+                <!-- Arrow down -->
+                <line x1="250" y1="100" x2="250" y2="130" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <text x="270" y="120" font-size="11" fill="#666">Reference trajectory</text>
+                
+                <!-- Low-level MPC -->
+                <rect x="100" y="140" width="300" height="60" rx="8" fill="#e74c3c" filter="url(#shadow)"/>
+                <text x="250" y="165" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Low-Level MPC Controller</text>
+                <text x="250" y="185" text-anchor="middle" font-size="12" fill="white">Fast dynamics (Ts = 1-10ms)</text>
+                
+                <!-- Arrow to plant -->
+                <line x1="250" y1="200" x2="250" y2="230" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                
+                <!-- Plant -->
+                <rect x="150" y="240" width="200" height="40" rx="8" fill="#95a5a6" filter="url(#shadow)"/>
+                <text x="250" y="265" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Plant/System</text>
+                
+                <!-- Feedback arrows -->
+                <path d="M 400 260 Q 450 260 450 170 Q 450 80 400 70" stroke="#666" stroke-width="2" 
+                      fill="none" marker-end="url(#arrowhead)" stroke-dasharray="5,5"/>
+                <text x="460" y="165" font-size="11" fill="#666">State feedback</text>
+            </g>
+            
+            <!-- Architecture 2: Unified Multi-Rate Controller -->
+            <g transform="translate(600, 70)">
+                <text x="250" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#34495e">
+                    2. Unified Multi-Rate Controller
+                </text>
+                
+                <!-- Unified Controller -->
+                <rect x="75" y="40" width="350" height="80" rx="8" fill="#9b59b6" filter="url(#shadow)"/>
+                <text x="250" y="65" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Multi-Rate MPC Controller</text>
+                <text x="250" y="85" text-anchor="middle" font-size="12" fill="white">Unified optimization with multiple time scales</text>
+                <text x="250" y="105" text-anchor="middle" font-size="12" fill="white">Variable sampling intervals</text>
+                
+                <!-- Multiple outputs -->
+                <line x1="150" y1="120" x2="150" y2="150" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="250" y1="120" x2="250" y2="150" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="350" y1="120" x2="350" y2="150" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                
+                <text x="150" y="140" text-anchor="middle" font-size="10" fill="#666">Fast</text>
+                <text x="250" y="140" text-anchor="middle" font-size="10" fill="#666">Medium</text>
+                <text x="350" y="140" text-anchor="middle" font-size="10" fill="#666">Slow</text>
+                
+                <!-- Plant -->
+                <rect x="150" y="160" width="200" height="40" rx="8" fill="#95a5a6" filter="url(#shadow)"/>
+                <text x="250" y="185" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Plant/System</text>
+                
+                <!-- Feedback -->
+                <path d="M 425 180 Q 475 180 475 80 Q 475 40 425 80" stroke="#666" stroke-width="2" 
+                      fill="none" marker-end="url(#arrowhead)" stroke-dasharray="5,5"/>
+                <text x="485" y="110" font-size="11" fill="#666">Multi-rate feedback</text>
+            </g>
+            
+            <!-- Architecture 3: Event-Driven Multi-Rate -->
+            <g transform="translate(50, 370)">
+                <text x="250" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#34495e">
+                    3. Event-Driven Multi-Rate Architecture
+                </text>
+                
+                <!-- Event Manager -->
+                <rect x="100" y="40" width="300" height="50" rx="8" fill="#f39c12" filter="url(#shadow)"/>
+                <text x="250" y="65" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Event Manager & Scheduler</text>
+                <text x="250" y="80" text-anchor="middle" font-size="12" fill="white">Dynamic rate adaptation</text>
+                
+                <!-- Multiple MPC instances -->
+                <rect x="50" y="120" width="130" height="60" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="115" y="145" text-anchor="middle" font-size="12" fill="white" font-weight="bold">MPC Instance 1</text>
+                <text x="115" y="165" text-anchor="middle" font-size="11" fill="white">Subsystem A</text>
+                
+                <rect x="190" y="120" width="130" height="60" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="255" y="145" text-anchor="middle" font-size="12" fill="white" font-weight="bold">MPC Instance 2</text>
+                <text x="255" y="165" text-anchor="middle" font-size="11" fill="white">Subsystem B</text>
+                
+                <rect x="330" y="120" width="130" height="60" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="395" y="145" text-anchor="middle" font-size="12" fill="white" font-weight="bold">MPC Instance N</text>
+                <text x="395" y="165" text-anchor="middle" font-size="11" fill="white">Subsystem N</text>
+                
+                <!-- Arrows from event manager -->
+                <line x1="200" y1="90" x2="115" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="250" y1="90" x2="255" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="300" y1="90" x2="395" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                
+                <!-- Plant -->
+                <rect x="150" y="210" width="200" height="40" rx="8" fill="#95a5a6" filter="url(#shadow)"/>
+                <text x="250" y="235" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Distributed Plant</text>
+                
+                <!-- Arrows to plant -->
+                <line x1="115" y1="180" x2="200" y2="210" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="255" y1="180" x2="250" y2="210" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="395" y1="180" x2="300" y2="210" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+            </g>
+            
+            <!-- Architecture 4: Asynchronous Multi-Threading -->
+            <g transform="translate(600, 370)">
+                <text x="250" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#34495e">
+                    4. Asynchronous Multi-Threading
+                </text>
+                
+                <!-- Thread Pool -->
+                <rect x="100" y="40" width="300" height="50" rx="8" fill="#e67e22" filter="url(#shadow)"/>
+                <text x="250" y="65" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Thread Pool & Task Scheduler</text>
+                <text x="250" y="80" text-anchor="middle" font-size="12" fill="white">Asynchronous execution</text>
+                
+                <!-- Fast thread -->
+                <rect x="50" y="120" width="120" height="50" rx="8" fill="#8e44ad" filter="url(#shadow)"/>
+                <text x="110" y="140" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Fast Thread</text>
+                <text x="110" y="158" text-anchor="middle" font-size="11" fill="white">High priority</text>
+                
+                <!-- Medium thread -->
+                <rect x="190" y="120" width="120" height="50" rx="8" fill="#8e44ad" filter="url(#shadow)"/>
+                <text x="250" y="140" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Med Thread</text>
+                <text x="250" y="158" text-anchor="middle" font-size="11" fill="white">Med priority</text>
+                
+                <!-- Slow thread -->
+                <rect x="330" y="120" width="120" height="50" rx="8" fill="#8e44ad" filter="url(#shadow)"/>
+                <text x="390" y="140" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Slow Thread</text>
+                <text x="390" y="158" text-anchor="middle" font-size="11" fill="white">Low priority</text>
+                
+                <!-- Shared memory -->
+                <rect x="150" y="190" width="200" height="40" rx="8" fill="#16a085" filter="url(#shadow)"/>
+                <text x="250" y="215" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Shared State/Memory</text>
+                
+                <!-- Arrows -->
+                <line x1="200" y1="90" x2="110" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="250" y1="90" x2="250" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="300" y1="90" x2="390" y2="120" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                
+                <!-- To shared memory -->
+                <line x1="110" y1="170" x2="200" y2="190" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="250" y1="170" x2="250" y2="190" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="390" y1="170" x2="300" y2="190" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+            </g>
+            
+            <!-- Comparison Table -->
+            <g transform="translate(100, 700)">
+                <text x="400" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">
+                    Architecture Comparison
+                </text>
+                
+                <!-- Table header -->
+                <rect x="0" y="50" width="800" height="40" fill="#34495e"/>
+                <text x="100" y="75" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Architecture</text>
+                <text x="250" y="75" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Complexity</text>
+                <text x="400" y="75" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Real-time Performance</text>
+                <text x="600" y="75" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Scalability</text>
+                <text x="750" y="75" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Use Case</text>
+                
+                <!-- Row 1 -->
+                <rect x="0" y="90" width="800" height="35" fill="#ecf0f1"/>
+                <text x="100" y="112" text-anchor="middle" font-size="12" fill="#2c3e50">Hierarchical</text>
+                <text x="250" y="112" text-anchor="middle" font-size="12" fill="#2c3e50">Low</text>
+                <text x="400" y="112" text-anchor="middle" font-size="12" fill="#2c3e50">Good</text>
+                <text x="600" y="112" text-anchor="middle" font-size="12" fill="#2c3e50">Medium</text>
+                <text x="750" y="112" text-anchor="middle" font-size="12" fill="#2c3e50">Clear time separation</text>
+                
+                <!-- Row 2 -->
+                <rect x="0" y="125" width="800" height="35" fill="#d5dbdb"/>
+                <text x="100" y="147" text-anchor="middle" font-size="12" fill="#2c3e50">Unified</text>
+                <text x="250" y="147" text-anchor="middle" font-size="12" fill="#2c3e50">High</text>
+                <text x="400" y="147" text-anchor="middle" font-size="12" fill="#2c3e50">Excellent</text>
+                <text x="600" y="147" text-anchor="middle" font-size="12" fill="#2c3e50">Low</text>
+                <text x="750" y="147" text-anchor="middle" font-size="12" fill="#2c3e50">Tightly coupled systems</text>
+                
+                <!-- Row 3 -->
+                <rect x="0" y="160" width="800" height="35" fill="#ecf0f1"/>
+                <text x="100" y="182" text-anchor="middle" font-size="12" fill="#2c3e50">Event-Driven</text>
+                <text x="250" y="182" text-anchor="middle" font-size="12" fill="#2c3e50">Medium</text>
+                <text x="400" y="182" text-anchor="middle" font-size="12" fill="#2c3e50">Good</text>
+                <text x="600" y="182" text-anchor="middle" font-size="12" fill="#2c3e50">High</text>
+                <text x="750" y="182" text-anchor="middle" font-size="12" fill="#2c3e50">Distributed systems</text>
+                
+                <!-- Row 4 -->
+                <rect x="0" y="195" width="800" height="35" fill="#d5dbdb"/>
+                <text x="100" y="217" text-anchor="middle" font-size="12" fill="#2c3e50">Async Threading</text>
+                <text x="250" y="217" text-anchor="middle" font-size="12" fill="#2c3e50">Medium</text>
+                <text x="400" y="217" text-anchor="middle" font-size="12" fill="#2c3e50">Very Good</text>
+                <text x="600" y="217" text-anchor="middle" font-size="12" fill="#2c3e50">Medium</text>
+                <text x="750" y="217" text-anchor="middle" font-size="12" fill="#2c3e50">Multi-core systems</text>
+            </g>
+            
+            <!-- Key Considerations -->
+            <g transform="translate(100, 1000)">
+                <text x="400" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">
+                    Key Design Considerations
+                </text>
+                
+                <rect x="0" y="50" width="800" height="200" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+                
+                <text x="20" y="80" font-size="16" font-weight="bold" fill="#495057">Timing Constraints:</text>
+                <text x="20" y="105" font-size="13" fill="#6c757d">• Hard real-time requirements vs. soft deadlines</text>
+                <text x="20" y="125" font-size="13" fill="#6c757d">• Jitter tolerance and timing predictability</text>
+                
+                <text x="20" y="160" font-size="16" font-weight="bold" fill="#495057">Computational Resources:</text>
+                <text x="20" y="185" font-size="13" fill="#6c757d">• CPU utilization and memory constraints</text>
+                <text x="20" y="205" font-size="13" fill="#6c757d">• Hardware acceleration opportunities (GPU, FPGA)</text>
+                
+                <text x="420" y="80" font-size="16" font-weight="bold" fill="#495057">System Coupling:</text>
+                <text x="420" y="105" font-size="13" fill="#6c757d">• Tight vs. loose coupling between subsystems</text>
+                <text x="420" y="125" font-size="13" fill="#6c757d">• State sharing and synchronization requirements</text>
+                
+                <text x="420" y="160" font-size="16" font-weight="bold" fill="#495057">Development & Maintenance:</text>
+                <text x="420" y="185" font-size="13" fill="#6c757d">• Code complexity and testability</text>
+                <text x="420" y="205" font-size="13" fill="#6c757d">• Debugging and monitoring capabilities</text>
+            </g>
+            
+            <!-- Hybrid Architecture -->
+            <g transform="translate(200, 1300)">
+                <text x="300" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">
+                    Hybrid Architecture (Common in Practice)
+                </text>
+                
+                <!-- High-level hierarchical -->
+                <rect x="200" y="50" width="200" height="40" rx="8" fill="#3498db" filter="url(#shadow)"/>
+                <text x="300" y="75" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Strategic MPC (Slow)</text>
+                
+                <!-- Threading layer -->
+                <rect x="50" y="120" width="500" height="40" rx="8" fill="#e67e22" filter="url(#shadow)"/>
+                <text x="300" y="145" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Multi-threaded Execution Layer</text>
+                
+                <!-- Multiple tactical controllers -->
+                <rect x="50" y="190" width="140" height="40" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="120" y="215" text-anchor="middle" font-size="11" fill="white" font-weight="bold">Tactical MPC 1</text>
+                
+                <rect x="230" y="190" width="140" height="40" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="300" y="215" text-anchor="middle" font-size="11" fill="white" font-weight="bold">Tactical MPC 2</text>
+                
+                <rect x="410" y="190" width="140" height="40" rx="8" fill="#27ae60" filter="url(#shadow)"/>
+                <text x="480" y="215" text-anchor="middle" font-size="11" fill="white" font-weight="bold">Tactical MPC N</text>
+                
+                <text x="300" y="270" text-anchor="middle" font-size="14" fill="#7f8c8d" font-style="italic">
+                    Combines hierarchical planning with parallel execution
+                </text>
+            </g>
+        </svg>
+    </div>
+
+    <div class="section">
+        <h2>Overview</h2>
+        <p>Multi-rate MPC systems face the fundamental challenge of controlling processes that operate at different time scales simultaneously. For example, a chemical process might require:</p>
+        <ul>
+            <li>Fast actuator control (1-10ms sampling)</li>
+            <li>Medium-rate temperature regulation (100ms-1s sampling)</li>
+            <li>Slow composition control (10s-minutes sampling)</li>
+        </ul>
+        <p>The software architecture must efficiently coordinate these different control loops while meeting real-time constraints and optimizing computational resources.</p>
+    </div>
+
+    <div class="section">
+        <h2>Four Primary Architectural Patterns</h2>
+        
+        <div class="architecture-grid">
+            <div class="arch-card">
+                <h4>1. Hierarchical Time-Scale Separation</h4>
+                <p><strong>Description:</strong> Classic approach with clear hierarchical layers, each operating at different time scales.</p>
+                <p><strong>Best for:</strong> Systems with natural time-scale separation, when simplicity is prioritized.</p>
+            </div>
+            
+            <div class="arch-card">
+                <h4>2. Unified Multi-Rate Controller</h4>
+                <p><strong>Description:</strong> Single optimization handling multiple time scales simultaneously with variable sampling intervals.</p>
+                <p><strong>Best for:</strong> Tightly coupled systems where optimal performance is critical.</p>
+            </div>
+            
+            <div class="arch-card">
+                <h4>3. Event-Driven Multi-Rate</h4>
+                <p><strong>Description:</strong> Dynamic scheduling of MPC instances based on system events and conditions.</p>
+                <p><strong>Best for:</strong> Large distributed systems with varying dynamics.</p>
+            </div>
+            
+            <div class="arch-card">
+                <h4>4. Asynchronous Multi-Threading</h4>
+                <p><strong>Description:</strong> Parallel execution of different rate controllers using separate threads with priority-based scheduling.</p>
+                <p><strong>Best for:</strong> Multi-core systems requiring high computational throughput.</p>
+            </div>
+        </div>
+
+        <h3>1. Hierarchical Time-Scale Separation</h3>
+        <div class="key-points">
+            <h4>Key Characteristics:</h4>
+            <ul>
+                <li>Clear separation of concerns between time scales</li>
+                <li>Strategic (slow) layer provides long-term optimization</li>
+                <li>Tactical (fast) layer handles real-time execution</li>
+                <li>Unidirectional information flow from slow to fast layers</li>
+            </ul>
+            
+            <h4>Advantages:</h4>
+            <ul>
+                <li>Simple to understand and implement</li>
+                <li>Well-established control theory foundation</li>
+                <li>Easy to debug and maintain</li>
+                <li>Natural fit when system has clear time-scale separation</li>
+            </ul>
+            
+            <h4>Disadvantages:</h4>
+            <ul>
+                <li>May be suboptimal due to decomposition</li>
+                <li>Limited coordination between layers</li>
+                <li>Potential for conflicts between layer objectives</li>
+            </ul>
+        </div>
+
+        <h3>2. Unified Multi-Rate Controller</h3>
+        <div class="key-points">
+            <h4>Key Characteristics:</h4>
+            <ul>
+                <li>Single optimization problem with multiple time horizons</li>
+                <li>Variable discretization across prediction horizon</li>
+                <li>Unified state estimation and prediction</li>
+                <li>Simultaneous consideration of all time scales</li>
+            </ul>
+            
+            <h4>Advantages:</h4>
+            <ul>
+                <li>Theoretically optimal control performance</li>
+                <li>No suboptimality from decomposition</li>
+                <li>Coordinated decision making across time scales</li>
+                <li>Single point of optimization</li>
+            </ul>
+            
+            <h4>Disadvantages:</h4>
+            <ul>
+                <li>High computational complexity</li>
+                <li>Complex implementation and tuning</li>
+                <li>Difficult to scale to large systems</li>
+                <li>Challenging real-time implementation</li>
+            </ul>
+        </div>
+
+        <h3>3. Event-Driven Multi-Rate Architecture</h3>
+        <div class="key-points">
+            <h4>Key Characteristics:</h4>
+            <ul>
+                <li>Dynamic rate adaptation based on events</li>
+                <li>Multiple MPC instances for different subsystems</li>
+                <li>Event-driven scheduling and coordination</li>
+                <li>Flexible resource allocation</li>
+            </ul>
+            
+            <h4>Advantages:</h4>
+            <ul>
+                <li>Excellent scalability for distributed systems</li>
+                <li>Efficient resource utilization</li>
+                <li>Adaptive to changing conditions</li>
+                <li>Good fault tolerance</li>
+            </ul>
+            
+            <h4>Disadvantages:</h4>
+            <ul>
+                <li>Complex event management logic</li>
+                <li>Potential for timing conflicts</li>
+                <li>Difficult to guarantee hard real-time performance</li>
+                <li>Complex debugging and monitoring</li>
+            </ul>
+        </div>
+
+        <h3>4. Asynchronous Multi-Threading Architecture</h3>
+        <div class="key-points">
+            <h4>Key Characteristics:</h4>
+            <ul>
+                <li>Separate threads for different time scales</li>
+                <li>Priority-based scheduling</li>
+                <li>Shared state management</li>
+                <li>Parallel execution of control calculations</li>
+            </ul>
+            
+            <h4>Advantages:</h4>
+            <ul>
+                <li>Excellent utilization of multi-core hardware</li>
+                <li>Good real-time performance with proper scheduling</li>
+                <li>Natural fit for modern computing platforms</li>
+                <li>Scalable with available cores</li>
+            </ul>
+            
+            <h4>Disadvantages:</h4>
+            <ul>
+                <li>Requires careful synchronization design</li>
+                <li>Potential for race conditions and deadlocks</li>
+                <li>Platform-dependent performance</li>
+                <li>Complex thread coordination</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Architecture Comparison Table</h2>
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Architecture</th>
+                        <th>Implementation Complexity</th>
+                        <th>Real-time Performance</th>
+                        <th>Scalability</th>
+                        <th>Primary Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Hierarchical</td>
+                        <td>Low</td>
+                        <td>Good</td>
+                        <td>Medium</td>
+                        <td>Clear time separation</td>
+                    </tr>
+                    <tr>
+                        <td>Unified</td>
+                        <td>High</td>
+                        <td>Excellent</td>
+                        <td>Low</td>
+                        <td>Tightly coupled systems</td>
+                    </tr>
+                    <tr>
+                        <td>Event-Driven</td>
+                        <td>Medium</td>
+                        <td>Good</td>
+                        <td>High</td>
+                        <td>Distributed systems</td>
+                    </tr>
+                    <tr>
+                        <td>Async Threading</td>
+                        <td>Medium</td>
+                        <td>Very Good</td>
+                        <td>Medium</td>
+                        <td>Multi-core systems</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Key Design Considerations</h2>
+        
+        <h3>Timing Constraints</h3>
+        <ul>
+            <li><strong>Hard real-time requirements vs. soft deadlines:</strong> Determine whether missing a deadline causes system failure or just performance degradation</li>
+            <li><strong>Jitter tolerance and timing predictability:</strong> Some control algorithms are more sensitive to timing variations than others</li>
+        </ul>
+
+        <h3>Computational Resources</h3>
+        <ul>
+            <li><strong>CPU utilization and memory constraints:</strong> Available processing power and memory bandwidth limit architecture choices</li>
+            <li><strong>Hardware acceleration opportunities:</strong> Modern systems may have GPUs, FPGAs, or dedicated signal processors available</li>
+        </ul>
+
+        <h3>System Coupling</h3>
+        <ul>
+            <li><strong>Tight vs. loose coupling between subsystems:</strong> Strongly interacting subsystems may require unified approaches</li>
+            <li><strong>State sharing and synchronization requirements:</strong> Determines communication complexity between control components</li>
+        </ul>
+
+        <h3>Development and Maintenance</h3>
+        <ul>
+            <li><strong>Code complexity and testability:</strong> Simpler architectures are easier to validate and maintain</li>
+            <li><strong>Debugging and monitoring capabilities:</strong> Real-time systems require sophisticated debugging tools</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Hybrid Architecture Pattern (Common in Practice)</h2>
+        
+        <div class="highlight-box">
+            <p>Most industrial multi-rate MPC systems use <strong>hybrid architectures</strong> that combine elements from multiple patterns. A typical hybrid approach includes:</p>
+        </div>
+
+        <h3>Strategic Layer (Hierarchical)</h3>
+        <ul>
+            <li>Slow, high-level optimization</li>
+            <li>Economic objectives and constraint management</li>
+            <li>Planning horizon: minutes to hours</li>
+        </ul>
+
+        <h3>Execution Layer (Multi-threading)</h3>
+        <ul>
+            <li>Parallel execution of multiple tactical controllers</li>
+            <li>Real-time constraint satisfaction</li>
+            <li>Planning horizon: seconds to minutes</li>
+        </ul>
+
+        <h3>Coordination Mechanisms</h3>
+        <ul>
+            <li>Event-driven communication for exceptional conditions</li>
+            <li>Shared memory for state information</li>
+            <li>Priority-based scheduling for real-time guarantees</li>
+        </ul>
+
+        <div class="key-points">
+            <h4>This hybrid approach provides:</h4>
+            <ul>
+                <li>Hierarchical clarity at the planning level</li>
+                <li>Parallel efficiency at the execution level</li>
+                <li>Event-driven adaptability for exceptional conditions</li>
+                <li>Good balance of performance and complexity</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Implementation Considerations for C++ and Rust</h2>
+        
+        <p>When implementing multi-rate MPC architectures, both C++ and Rust offer distinct advantages:</p>
+
+        <div class="code-langs">
+            <div class="lang-card">
+                <h4>C++ Strengths</h4>
+                <ul>
+                    <li>Mature real-time libraries and frameworks</li>
+                    <li>Extensive numerical computing ecosystem</li>
+                    <li>Direct hardware control capabilities</li>
+                    <li>Well-established in control systems industry</li>
+                </ul>
+            </div>
+
+            <div class="lang-card">
+                <h4>Rust Strengths</h4>
+                <ul>
+                    <li>Memory safety without garbage collection overhead</li>
+                    <li>Excellent concurrency primitives</li>
+                    <li>Growing ecosystem for numerical computing</li>
+                    <li>Strong type system for safety-critical applications</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <h4>Recommended Approach</h4>
+            <p>Consider implementing core algorithms in Rust for safety and concurrency benefits, with C++ interfaces for integration with existing control system infrastructure.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Conclusion</h2>
+        
+        <div class="executive-summary">
+            <p>The choice of multi-rate MPC software architecture should be driven by specific system requirements rather than following a single prescribed pattern. Each architecture offers different trade-offs between performance, complexity, scalability, and real-time guarantees.</p>
+        </div>
+
+        <p>Most successful implementations use hybrid approaches that combine the best aspects of multiple architectural patterns. The key is to carefully analyze your system's specific constraints and requirements before selecting and customizing an appropriate architectural foundation.</p>
+
+        <p>For prototype development, starting with a hierarchical approach often provides the quickest path to a working system, which can then be evolved toward more sophisticated hybrid architectures as requirements become clearer.</p>
+
+        <div class="highlight-box">
+            <h4>Next Steps for Prototype Development</h4>
+            <p>When you're ready to move to the implementation phase, we can dive deeper into the specific architectural pattern that best fits your requirements and start designing the C++/Rust prototype structure based on:</p>
+            <ul>
+                <li>Your specific plant dynamics and time-scale requirements</li>
+                <li>Hardware constraints (embedded vs. server-class)</li>
+                <li>Real-time guarantees needed</li>
+                <li>Preferred architectural pattern based on this analysis</li>
+            </ul>
+        </div>
+    </div>
+
+</body>
+</html>
