@@ -21,6 +21,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out", default=None, help="optional output video path")
     p.add_argument("--log-interval", type=float, default=1.0,
                    help="seconds between log lines")
+    p.add_argument("--sort_algorithm",  default="deep_sort")
+    p.add_argument("--odmodel",default='yolo')
+    p.add_argument('--reid',default='clip')
     return p.parse_args()
 
 
@@ -48,9 +51,10 @@ def main():
 
     # tracker
     sct = SingleCameraTracker(
-        od_name="yolo",
+        od_name=args.odmodel,
         tracker_kwargs=dict(max_age=50, iou_thres=0.4, appearance_thres=0.5),
-
+        sort_algorithm=args.sort_algorithm,
+        reid_name=args.reid,
     )
 
     # 🔸 stats

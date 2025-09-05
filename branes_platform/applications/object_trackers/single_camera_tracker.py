@@ -7,7 +7,8 @@ Created : 2025-06-25
 """
 from __future__ import annotations
 
-from typing import Any, List, Sequence
+import inspect
+from typing import Any, List, Sequence, Dict, Callable
 
 import cv2
 import numpy as np
@@ -19,11 +20,51 @@ from branes_platform.nn.reid.iree_model import ReIDModelIREE
 from branes_platform.nn.reid.models import ReIDModel
 
 from branes_platform.pipelines.object_trackers.deepsort import DeepSort, _valid_box
+from branes_platform.pipelines.object_trackers.sort import Sort
+from branes_platform.pipelines.object_trackers.bot_sort import BoTSORT
+from branes_platform.pipelines.object_trackers.oc_sort import OCSort
+from branes_platform.pipelines.object_trackers.byte_track import ByteTrack
+
 
 __all__ = [
     "SingleCameraTracker",
 ]
 
+def _algo_registry() -> Dict[str, Callable[..., Any]]:
+    """Map user-facing names to tracker classes."""
+    return {
+        "deep_sort": DeepSort,
+        "deepsort": DeepSort,
+        "sort": Sort,
+        "bot_sort": BoTSORT,
+        "botsort": BoTSORT,
+        "oc_sort": OCSort,
+        "ocsort": OCSort,
+        "bytetrack": ByteTrack,
+        "byte_track": ByteTrack,
+    }
+
+_IGNORED_KEYS_WARNED = set()
+
+def _filter_kwargs_for_ctor(ctor: Callable[..., Any], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only kwargs that the constructor accepts (by name)."""
+    if not kwargs:
+        return {}
+    sig = inspect.signature(ctor)
+    accepted = set(sig.parameters.keys())
+    # If ctor has **kwargs, pass everything through
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+        return dict(kwargs)
+
+    filtered = {k: v for k, v in kwargs.items() if k in accepted}
+    ignored = tuple(k for k in kwargs.keys() if k not in filtered)
+
+    if ignored:
+        key = (ctor.__name__, tuple(sorted(ignored)))
+        if key not in _IGNORED_KEYS_WARNED:
+            print(f"[tracker kwargs] Ignoring unsupported args for {ctor.__name__}: {ignored}")
+            _IGNORED_KEYS_WARNED.add(key)
+    return filtered
 
 class SingleCameraTracker:
     """High-level tracker running on a single video feed.
@@ -44,6 +85,7 @@ class SingleCameraTracker:
         *,
         od_name: str = "yolo",
         reid_name: str = "clip",
+        sort_algorithm: str = "deep_sort",
         compile_od: bool | dict[str, Any] = False,
         compile_reid: bool | dict[str, Any] = False,
         od_kwargs: dict[str, Any] | None = None,
@@ -55,7 +97,31 @@ class SingleCameraTracker:
         self.od = ODModel(od_name, compile_model=compile_od,device=device, **(od_kwargs or {}),)
         self.reid = ReIDModel(reid_name, compile_model=compile_reid,device=device)
 
-        self.tracker = DeepSort(self.reid, **(tracker_kwargs or {}))
+        # tracker ------------------------------------------------------------ #
+        # tracker ------------------------------------------------------------ #
+        algo = sort_algorithm.lower()
+        registry = _algo_registry()
+        if algo not in registry:
+            raise ValueError(
+                f"Unknown sort_algorithm='{sort_algorithm}'. "
+                f"Supported: {sorted(set(registry.keys()))}"
+            )
+
+        TrackerCls = registry[algo]
+
+        # Decide if this tracker expects ReID in its constructor
+        # (DeepSort & BoT-SORT do; SORT/OC-SORT/ByteTrack typically don't).
+        needs_reid = "reid" in inspect.signature(TrackerCls).parameters
+
+        tk = tracker_kwargs or {}
+        ctor_kwargs = _filter_kwargs_for_ctor(TrackerCls, tk)
+
+        if needs_reid:
+            print(f"Using {TrackerCls.__name__} tracker (with ReID)")
+            self.tracker = TrackerCls(self.reid, **ctor_kwargs)
+        else:
+            print(f"Using {TrackerCls.__name__} tracker")
+            self.tracker = TrackerCls(**ctor_kwargs)
 
     # --------------------------------------------------------------------- #
 
