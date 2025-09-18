@@ -268,8 +268,10 @@ def run_benchmark(
     print("\n[3/3] Report (per detected-object bucket)")
     hdr = (
         f"{'objects':>7} | {'samples':>7} | "
-        f"{'OD ms (μ/σ)':>14} | {'ReID ms (μ/σ)':>16} | "
-        f"{'Other ms (μ/σ)':>16} | {'Total ms (μ/σ)':>16} | {'FPS μ':>8}"
+        f"{'OD ms (mean)':>14} | {'OD ms (deviation)':>16} | "
+        f"{'ReID ms (mean)':>14} | {'ReID ms (deviation)':>16} | "
+        f"{'Other ms (mean)':>14} | {'Other ms (deviation)':>16} | "
+        f"{'Total ms (mean)':>14} | {'Total ms (deviation)':>16} | {'FPS μ':>8} "
     )
     print(hdr)
     print("-" * len(hdr))
@@ -286,10 +288,10 @@ def run_benchmark(
 
         print(
             f"{obj_cnt:>7} | {n:>7} | "
-            f"{od_mu:>7.2f}/{od_sd:>5.2f} | "
-            f"{reid_mu:>7.2f}/{reid_sd:>5.2f} | "
-            f"{oth_mu:>7.2f}/{oth_sd:>5.2f} | "
-            f"{tot_mu:>7.2f}/{tot_sd:>5.2f} | "
+            f"{od_mu:>7.2f} | {od_sd:>5.2f} | "
+            f"{reid_mu:>7.2f} | {reid_sd:>5.2f} | "
+            f"{oth_mu:>7.2f} | {oth_sd:>5.2f} | "
+            f"{tot_mu:>7.2f} | {tot_sd:>5.2f} | "
             f"{fps_mu:>8.2f}"
         )
 
