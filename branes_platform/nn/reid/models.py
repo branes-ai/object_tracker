@@ -18,6 +18,8 @@ __all__ = [
     "get_supported_reid_models"
 ]
 
+from torch import nn
+
 from branes_platform.nn.base import BranesModel
 
 SUPPORTED_MODELS = [
@@ -26,10 +28,70 @@ SUPPORTED_MODELS = [
     "dinov2_vits14",
     "vit_b_16",
     "resnet50_reid",
+    "osnet",
+    "mobilenetv2",
+    "resnet18"
+
 ]
 
 def get_supported_reid_models() -> list[str]:
     return SUPPORTED_MODELS
+
+def _imagenet_preprocess(size_hw: tuple[int, int]) -> "callable":
+    # Lazy import to avoid hard dep if user never hits this path.
+    from torchvision import transforms as T
+    h, w = size_hw
+    return T.Compose([
+        T.Resize((h, w), interpolation=T.InterpolationMode.BILINEAR),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]),
+    ])
+
+
+class _TVMobileNetV2Embedder(nn.Module):
+    """Torchvision MobileNetV2 that outputs a 1280-d embedding."""
+    def __init__(self, weights=None):
+        super().__init__()
+        from torchvision.models import mobilenet_v2, MobileNet_V2_Weights
+        if weights is None:
+            weights = MobileNet_V2_Weights.IMAGENET1K_V1
+        base = mobilenet_v2(weights=weights)
+        self.features = base.features
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.pool(x).flatten(1)  # (B, 1280)
+        return x
+
+
+class _TVResNet18Embedder(nn.Module):
+    """Torchvision ResNet18 that outputs a 512-d embedding."""
+    def __init__(self, weights=None):
+        super().__init__()
+        from torchvision.models import resnet18, ResNet18_Weights
+        if weights is None:
+            weights = ResNet18_Weights.IMAGENET1K_V1
+        base = resnet18(weights=weights)
+        # Keep everything except the final FC
+        self.stem = nn.Sequential(
+            base.conv1, base.bn1, base.relu, base.maxpool
+        )
+        self.layer1 = base.layer1
+        self.layer2 = base.layer2
+        self.layer3 = base.layer3
+        self.layer4 = base.layer4
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.pool(x).flatten(1)  # (B, 512)
+        return x
 
 
 class ReIDModel(BranesModel):
@@ -84,6 +146,61 @@ class ReIDModel(BranesModel):
             self._compile_target = self.model
             self.config.update(
                 {"architecture": "ResNet50 (timm, penultimate)", "embed_dim": 2048, "input_size": (256, 128)})
+
+        elif self.model_name.startswith("osnet"):
+            try:
+                import torchreid  # type: ignore
+            except Exception as e:
+                raise ImportError(
+                    "OSNet requires the 'torchreid' package. Install with: pip install torchreid"
+                ) from e
+
+            arch = self.model_name  # e.g., osnet_x0_25, osnet_x1_0
+            # num_classes doesn't matter for embedding extraction; pretrained=True auto-downloads
+            self.model = torchreid.models.build_model(
+                name=arch, num_classes=1000, pretrained=True
+            ).to(self.device).eval()
+
+            # Most OSNet variants output 512-d features by default
+            feat_dim = int(getattr(self.model, "feature_dim", getattr(self.model, "num_features", 512)))
+            # Standard ReID crop for persons: 256x128; general objects work too
+            self.preprocess = _imagenet_preprocess((256, 128))
+            self._compile_target = self.model
+            self.config.update({
+                "architecture": f"OSNet ({arch})",
+                "pretrained": "torchreid-zoo",
+                "embed_dim": feat_dim,
+                "input_size": (256, 128),
+            })
+
+            # ------------------------------ MobileNetV2 (torchvision) --------- #
+        elif self.model_name in {"mobilenetv2", "mobilenet_v2"}:
+            from torchvision.models import MobileNet_V2_Weights
+            weights = MobileNet_V2_Weights.IMAGENET1K_V1
+            self.model = _TVMobileNetV2Embedder(weights=weights).to(self.device).eval()
+            self.preprocess = _imagenet_preprocess((224, 224))
+            self._compile_target = self.model
+            self.config.update({
+                "architecture": "MobileNetV2 (TV)",
+                "pretrained": str(weights),
+                "embed_dim": 1280,
+                "input_size": 224,
+            })
+
+            # ------------------------------ ResNet18 (torchvision) ------------ #
+        elif self.model_name in {"resnet18", "resnet-18"}:
+            from torchvision.models import ResNet18_Weights
+            weights = ResNet18_Weights.IMAGENET1K_V1
+            self.model = _TVResNet18Embedder(weights=weights).to(self.device).eval()
+            self.preprocess = _imagenet_preprocess((224, 224))
+            self._compile_target = self.model
+            self.config.update({
+                "architecture": "ResNet18 (TV)",
+                "pretrained": str(weights),
+                "embed_dim": 512,
+                "input_size": 224,
+            })
+
 
         else:
             raise ValueError(f"Unsupported ReID model: {model_name}")

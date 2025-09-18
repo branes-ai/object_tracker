@@ -4,7 +4,9 @@ from typing import Union, List
 import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
+import time
 
+from branes_platform.utils.timer import _Timer
 from branes_platform.pipelines.object_trackers.deepsort import _valid_box, _Track, _iou
 
 
@@ -34,6 +36,7 @@ class ByteTrack:
         match_iou: float = 0.3,
         max_age: int = 30,
         min_hits: int = 3,
+        timeit: bool = False,
     ) -> None:
         assert 0.0 <= low_thres <= high_thres <= 1.0
         self.high_thres = high_thres
@@ -42,6 +45,7 @@ class ByteTrack:
         self.max_age = max_age
         self.min_hits = min_hits
         self.tracks: list[_Track] = []
+        self.timeit = timeit
 
     @staticmethod
     def _assign(tracks: list[_Track], dets_xyxy: np.ndarray, iou_thr: float) -> tuple[list[tuple[int,int]], set[int], set[int]]:
@@ -59,6 +63,9 @@ class ByteTrack:
 
     @torch.no_grad()
     def update(self, frame_bgr: np.ndarray, detections: Union[torch.Tensor, np.ndarray]) -> List[List[float]]:
+        trk_timer = _Timer(torch.device("cpu"))  # OC-SORT is CPU-only here; change if you move KF to GPU
+        if self.timeit:
+            trk_timer.start()
         if isinstance(detections, torch.Tensor):
             detections = detections.cpu().numpy()
         if detections.size == 0:
@@ -108,4 +115,7 @@ class ByteTrack:
                 continue
             x1, y1, x2, y2 = t.to_xyxy()
             out.append([x1, y1, x2, y2, float(t.id), float(t.hits)])
-        return out
+        if not self.timeit:
+            return out
+        total_ms = trk_timer.stop_ms()
+        return out, {"reid_ms": 0.0, "total_ms": float(total_ms)}

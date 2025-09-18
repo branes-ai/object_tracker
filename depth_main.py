@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 """
 demo_depth_camera.py
-Live monocular depth estimation from a webcam or video file.
+Monocular depth estimation from a video file or webcam.
 
 Examples
 --------
-# Default webcam, overlay depth
-python demo_depth_camera.py --source 0 --device cpu --overlay
-
-# Side-by-side view, save to MP4
+# Process full video
 python demo_depth_camera.py --source path/to/video.mp4 --out out_depth.mp4 --side-by-side
 
-# Faster/smaller checkpoint
-python demo_depth_camera.py --source 0 --weight Intel/dpt-swinv2-tiny-256 --overlay
+# Process only a 30 sec clip starting at 1 min
+python demo_depth_camera.py --source path/to/video.mp4 --start 60 --duration 30 --out out.mp4
 
-Keys
-----
-Esc  : quit
+# Live webcam (index 0)
+python demo_depth_camera.py --source 0 --overlay
 """
 
 from __future__ import annotations
@@ -33,16 +29,23 @@ import torch
 from branes_platform.nn.depth.models import DepthModel
 from branes_platform.applications.distance.visualize_depth import depth_to_color
 
+
 def open_source(src: str) -> cv2.VideoCapture:
     return cv2.VideoCapture(int(src) if str(src).isdigit() else src)
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Monocular depth camera demo")
-    p.add_argument("--source", default="0", help="webcam index or video path")
+    p.add_argument("--source", required=True,
+                   help="video path or webcam index (e.g., 0)")
     p.add_argument("--device", default="cpu", help="torch device (cpu|cuda:0)")
     p.add_argument("--weight", default="Intel/dpt-hybrid-midas",
                    help="HF checkpoint (e.g., Intel/dpt-hybrid-midas, Intel/dpt-swinv2-tiny-256)")
     p.add_argument("--out", default=None, help="optional output video path (mp4)")
+    p.add_argument("--start", type=float, default=0.0,
+                   help="start time in seconds (video only)")
+    p.add_argument("--duration", type=float, default=None,
+                   help="clip duration in seconds (video only)")
     view = p.add_mutually_exclusive_group()
     view.add_argument("--overlay", action="store_true", help="overlay depth on RGB")
     view.add_argument("--side-by-side", action="store_true", help="show RGB | depth")
@@ -51,6 +54,7 @@ def parse_args() -> argparse.Namespace:
                    help="temporal EMA for depth map in [0..1] (0 disables)")
     p.add_argument("--log-interval", type=float, default=1.0, help="seconds between FPS logs")
     return p.parse_args()
+
 
 def main() -> None:
     args = parse_args()
@@ -66,11 +70,22 @@ def main() -> None:
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480)
     fps_src = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
 
+    # Seek to start time (if video)
+    if not str(args.source).isdigit() and args.start > 0:
+        cap.set(cv2.CAP_PROP_POS_MSEC, args.start * 1000)
+
+    # Output writer
     writer = None
     if args.out:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(str(Path(args.out)), fourcc, fps_src, (w if not args.side_by_side else 2*w, h))
+        writer = cv2.VideoWriter(
+            str(Path(args.out)),
+            fourcc,
+            fps_src,
+            (w if not args.side_by_side else 2 * w, h),
+        )
 
     device = torch.device(args.device if (args.device != "cuda" or torch.cuda.is_available()) else "cpu")
     depth_model = DepthModel(device=device, weight=args.weight)
@@ -81,12 +96,20 @@ def main() -> None:
     frame_cnt = 0
     t0 = last_log = time.perf_counter()
 
-    # Optional temporal smoothing state (on normalized depth for visualization)
+    # Temporal smoothing
     dnorm_ema = None
     alpha_s = float(args.smooth_alpha)
-    use_overlay = bool(args.overlay) or not args.side_by_side  # overlay by default
+    use_overlay = bool(args.overlay) or not args.side_by_side
+
+    # Stop condition for duration
+    max_frames = None
+    if args.duration is not None:
+        max_frames = int(args.duration * fps_src)
 
     while True:
+        if max_frames is not None and frame_cnt >= max_frames:
+            break
+
         ok, frame = cap.read()
         if not ok:
             break
@@ -94,10 +117,9 @@ def main() -> None:
             frame = frame.astype(np.uint8)
 
         # Predict depth
-        res = depth_model.predict(frame)  # returns .depth_raw (float) and .depth_norm (0..1)
-        dnorm = res.depth_norm  # torch.FloatTensor [H, W] on CPU
+        res = depth_model.predict(frame)
+        dnorm = res.depth_norm
 
-        # Temporal EMA (visual smoothing)
         if alpha_s > 0.0:
             if dnorm_ema is None:
                 dnorm_ema = dnorm.clone()
@@ -107,16 +129,14 @@ def main() -> None:
         else:
             dshow = dnorm
 
-        depth_color = depth_to_color(dshow)  # BGR uint8
+        depth_color = depth_to_color(dshow)
 
         if use_overlay:
             vis = frame.copy()
             cv2.addWeighted(depth_color, args.alpha, vis, 1 - args.alpha, 0, vis)
         else:
-            # Side-by-side: RGB | Depth
             vis = np.concatenate([frame, depth_color], axis=1)
 
-        # Logging
         frame_cnt += 1
         now = time.perf_counter()
         if now - last_log >= args.log_interval:
@@ -128,13 +148,14 @@ def main() -> None:
         if writer is not None:
             writer.write(vis)
 
-        if (cv2.waitKey(1) & 0xFF) == 27:  # Esc
+        if (cv2.waitKey(1) & 0xFF) == 27:
             break
 
     cap.release()
     if writer is not None:
         writer.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()

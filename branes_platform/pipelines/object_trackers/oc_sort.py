@@ -5,7 +5,9 @@ from typing import Union, List
 import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
+import time
 
+from branes_platform.utils.timer import _Timer
 from branes_platform.pipelines.object_trackers.deepsort import _valid_box, _iou
 
 
@@ -79,15 +81,20 @@ class OCSort:
     """
 
     def __init__(self, *, max_age: int = 30, iou_thres: float = 0.3,
-                 conf_thres: float = 0.3, alpha_obs: float = 0.7) -> None:
+                 conf_thres: float = 0.3, alpha_obs: float = 0.7,timeit: bool = False) -> None:
         self.tracks: list[_OCTrack] = []
         self.max_age = max_age
         self.iou_thr = iou_thres
         self.conf_thres = conf_thres
         self.alpha_obs = float(np.clip(alpha_obs, 0.0, 1.0))
+        self.timeit = timeit
 
     @torch.no_grad()
     def update(self, frame_bgr: np.ndarray, detections: Union[torch.Tensor, np.ndarray]) -> List[List[float]]:
+        trk_timer = _Timer(torch.device("cpu"))  # OC-SORT is CPU-only here; change if you move KF to GPU
+        if self.timeit:
+            trk_timer.start()
+
         if isinstance(detections, torch.Tensor):
             detections = detections.cpu().numpy()
         if detections.size == 0:
@@ -143,4 +150,7 @@ class OCSort:
             if not t.confirmed or t.time > 0: continue
             x1,y1,x2,y2 = t.to_xyxy()
             out.append([x1,y1,x2,y2, float(t.id), float(t.hits)])
-        return out
+        if not self.timeit:
+            return out
+        total_ms = trk_timer.stop_ms()
+        return out, {"reid_ms": 0.0, "total_ms": float(total_ms)}

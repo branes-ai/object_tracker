@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple, Union, Any
 from itertools import count
-
+import time
 import numpy as np
 import torch
 from filterpy.kalman import KalmanFilter
@@ -27,6 +27,7 @@ __all__ = [
     "DeepSort",
 ]
 
+from branes_platform.utils.timer import _Timer
 from branes_platform.nn.reid.models import ReIDModel
 
 
@@ -165,12 +166,15 @@ class DeepSort:
         max_age: int = 30,
         iou_thres: float = 0.4,
         appearance_thres: float = 0.5,
+        timeit: bool = False,
+
     ) -> None:
         self.reid = reid
         self.tracks: list[_Track] = []
         self.max_age = max_age
         self.iou_thr = iou_thres
         self.app_thr = appearance_thres
+        self.timeit = bool(timeit)
 
     # ------------------------------------------------------------------ #
 
@@ -198,13 +202,23 @@ class DeepSort:
         if detections.size == 0:
             detections = detections.reshape(0, 6)
 
+        # 0) tracker timing (excluding detector; detector is timed outside)
+        trk_timer = _Timer(self.reid.device)
+
+        if self.timeit:
+            trk_timer.start()
+
         # 1) predict state for existing tracks
         for t in self.tracks:
             t.predict()
 
         # 2) compute appearance embeddings for detections
         boxes_xyxy = torch.as_tensor(detections[:, :4], dtype=torch.float32, device=self.reid.device)
+        if self.timeit:
+            reid_timer = _Timer(self.reid.device)
+            reid_timer.start()
         feats = self.reid.predict(frame_bgr, boxes_xyxy)
+        reid_ms = reid_timer.stop_ms() if self.timeit else 0.0
 
         # 3) build cost matrix (combined IoU + cosine)
         matches: list[tuple[int, int]] = []
@@ -215,6 +229,13 @@ class DeepSort:
             )
             feats_trk = torch.stack([t.feat for t in self.tracks]) if self.tracks else torch.empty((0, feats.shape[1]))
             app_cos = 1.0 - torch.cdist(feats_trk, feats, p=2).cpu().numpy()  # cosine sim in [‑1,1]
+
+            # feats_trk = (
+            #     torch.stack([t.feat for t in self.tracks]).to(feats.dtype).to(feats.device)
+            #     if self.tracks else torch.empty((0, feats.shape[1]), dtype=feats.dtype, device=feats.device)
+            #                           )
+            # # Both feats_trk and feats are L2-normalised -> cosine = dot product in [-1,1]
+            # app_cos = (feats_trk @ feats.T).clamp(-1, 1).cpu().numpy()
 
             # combine
             use_iou = (iou_mat > 0.10).astype(np.float32)
@@ -256,4 +277,7 @@ class DeepSort:
                 continue
             x1, y1, x2, y2 = t.to_xyxy()
             outputs.append([x1, y1, x2, y2, float(t.id), float(t.hits)])
-        return outputs
+        if not self.timeit:
+            return outputs
+        total_ms = trk_timer.stop_ms()
+        return outputs, {"reid_ms": float(reid_ms), "total_ms": float(total_ms)}

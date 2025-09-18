@@ -8,6 +8,7 @@ Created : 2025-06-25
 from __future__ import annotations
 
 import inspect
+import time
 from typing import Any, List, Sequence, Dict, Callable
 
 import cv2
@@ -25,10 +26,18 @@ from branes_platform.pipelines.object_trackers.bot_sort import BoTSORT
 from branes_platform.pipelines.object_trackers.oc_sort import OCSort
 from branes_platform.pipelines.object_trackers.byte_track import ByteTrack
 
+# -----------------------------------------------------------------------------
+# Timer utility: precise on CUDA via Events; perf_counter on CPU
+# -----------------------------------------------------------------------------
+
+
 
 __all__ = [
     "SingleCameraTracker",
 ]
+
+from branes_platform.utils.timer import _Timer
+
 
 def _algo_registry() -> Dict[str, Callable[..., Any]]:
     """Map user-facing names to tracker classes."""
@@ -92,7 +101,9 @@ class SingleCameraTracker:
         reid_kwargs: dict[str, Any] | None = None,
         tracker_kwargs: dict[str, Any] | None = None,
         device: str | torch.device | None = None,
+        timeit: bool = False,
     ) -> None:
+        self.timeit = bool(timeit)
         # models ------------------------------------------------------------- #
         self.od = ODModel(od_name, compile_model=compile_od,device=device, **(od_kwargs or {}),)
         self.reid = ReIDModel(reid_name, compile_model=compile_reid,device=device)
@@ -128,9 +139,44 @@ class SingleCameraTracker:
     @torch.no_grad()
     def update(self, frame_bgr: np.ndarray) -> List[List[float]]:
         """Run detection ➜ DeepSort update. Returns active tracks."""
+        # OD timing
+        t_od = _Timer(self.od.device)
+        t_od.start()
         dets = self.od.predict(frame_bgr)  # (N,6) tensor on model.device
-        tracks = self.tracker.update(frame_bgr, dets)
-        return tracks
+        od_ms = t_od.stop_ms() if self.timeit else 0.0
+
+        # Tracker timing (and ReID inside it)
+        trk_times = None
+        if self.timeit:
+            # If tracker returns timings, use them; otherwise measure externally.
+            t_trk = _Timer(self.reid.device)
+            t_trk.start()
+            out = self.tracker.update(frame_bgr, dets)
+            trk_ms = t_trk.stop_ms()
+
+            if isinstance(out, tuple) and len(out) == 2 and isinstance(out[1], dict):
+                tracks, trk_times = out
+            else:
+                tracks, trk_times = out, {"reid_ms": 0.0, "total_ms": trk_ms}
+        else:
+            tracks = self.tracker.update(frame_bgr, dets)
+
+
+        if not self.timeit:
+            return tracks
+
+            # Normalize timing dictionary
+        trk_total = float(trk_times.get("total_ms", 0.0)) if trk_times else 0.0
+        reid_ms = float(trk_times.get("reid_ms", 0.0)) if trk_times else 0.0
+        other_ms = max(0.0, trk_total - reid_ms)
+
+        timings = {
+            "od_ms": float(od_ms),
+            "reid_ms": reid_ms,
+            "other_ms": other_ms,
+            "total_ms": float(od_ms) + trk_total,
+        }
+        return tracks, timings
 
     # --------------------------------------------------------------------- #
     #                           visual helpers                               #

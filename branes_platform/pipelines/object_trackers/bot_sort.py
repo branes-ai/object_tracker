@@ -6,7 +6,9 @@ import cv2
 import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
+import time
 
+from branes_platform.utils.timer import _Timer
 from branes_platform.nn.reid.models import ReIDModel
 from branes_platform.pipelines.object_trackers.deepsort import _valid_box, _iou
 
@@ -93,7 +95,8 @@ class BoTSORT:
                  ema: float = 0.9,
                  conf_thres: float = 0.3,
                  cmc: bool = True,
-                 cmc_min_matches: int = 30) -> None:
+                 cmc_min_matches: int = 30,
+                 timeit:bool = False) -> None:
         self.reid = reid
         self.max_age = max_age
         self.match_iou = match_iou
@@ -105,6 +108,7 @@ class BoTSORT:
         self.tracks: list[_BoTTrack] = []
         self._prev_gray: np.ndarray | None = None
         self._H_prev2curr: np.ndarray | None = None
+        self.timeit = timeit
 
     # -- camera motion compensation -------------------------------------- #
     @staticmethod
@@ -129,6 +133,13 @@ class BoTSORT:
     # -------------------------------------------------------------------- #
     @torch.no_grad()
     def update(self, frame_bgr: np.ndarray, detections: Union[torch.Tensor, np.ndarray]) -> List[List[float]]:
+        reid_ms = 0.0
+        cmc_ms = 0.0
+        if getattr(self, "timeit", False):
+            total_timer = _Timer(torch.device("cpu"))  # tracker logic on CPU
+            reid_timer = _Timer(self.reid.device)  # ReID on its device
+            cmc_timer = _Timer(torch.device("cpu"))  # ORB/H is CPU
+        total_timer.start()
         if isinstance(detections, torch.Tensor):
             detections = detections.cpu().numpy()
         if detections.size == 0:
@@ -140,7 +151,11 @@ class BoTSORT:
         curr_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         H = None
         if self.cmc and self._prev_gray is not None:
+            if getattr(self, "timeit", False):
+                cmc_timer.start()
             H = self._estimate_homography(self._prev_gray, curr_gray, self.cmc_min_matches)
+            if getattr(self, "timeit", False):
+                cmc_ms = cmc_timer.stop_ms()
         self._prev_gray = curr_gray
 
         # 1) predict step
@@ -148,8 +163,16 @@ class BoTSORT:
 
         # 2) appearance features for detections
         det_boxes = torch.as_tensor(detections[:, :4], dtype=torch.float32, device=self.reid.device)
-        feats_det = self.reid.predict(frame_bgr, det_boxes) if len(detections) else torch.empty((0, self.reid.config.get("embed_dim", 512)), device=self.reid.device)
+        # feats_det = self.reid.predict(frame_bgr, det_boxes) if len(detections) else torch.empty((0, self.reid.config.get("embed_dim", 512)), device=self.reid.device)
 
+        if len(detections):
+            if getattr(self, "timeit", False):
+                reid_timer.start()
+            feats_det = self.reid.predict(frame_bgr, det_boxes)
+            if getattr(self, "timeit", False):
+                reid_ms = reid_timer.stop_ms()
+        else:
+            feats_det = torch.empty((0, self.reid.config.get("embed_dim", 512)), device=self.reid.device)
         # 3) build fused cost matrix
         matches: list[tuple[int,int]] = []
         if self.tracks and len(detections):
@@ -204,4 +227,12 @@ class BoTSORT:
             if not t.confirmed or t.time > 0: continue
             x1,y1,x2,y2 = t.to_xyxy()
             out.append([x1,y1,x2,y2, float(t.id), float(t.hits)])
-        return out
+
+        if not getattr(self, "timeit", False):
+            return out
+        total_ms = total_timer.stop_ms()
+        return out, {
+                        "reid_ms": float(reid_ms),
+                        "cmc_ms": float(cmc_ms),
+                        "total_ms": float(total_ms),
+            }
