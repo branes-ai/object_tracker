@@ -1,147 +1,71 @@
-# DeepSORT — Modular Multi-Object Tracking
+# Object Tracking Benchmark Suite
 
-<p align="center">
-  <img src="https://placehold.co/1000x200?text=DeepSORT" alt="DeepSORT banner"/>
-</p>
+This repository provides a **unified pipeline** for object tracking
+algorithms (DeepSORT, OC-SORT, BoT-SORT, ByteTrack, SORT, …) built on top of
+our modular wrappers:
 
-Tiny, flexible re-implementation of **Deep SORT** (Simple Online and Realtime Tracking) that lets you mix-and-match modern
-*Object Detectors* and *Re-ID* backbones with only a few lines of code.
+- **ODModel** → popular object detectors (YOLOv8/9, RT-DETR, DETR, YOLOS, Faster R-CNN, SSD, …)  
+- **ReIDModel** → appearance encoders for re-identification (CLIP, DINOv2, OSNet, MobileNetV2, ResNet18, …)  
+- **Trackers** → multiple multi-object tracking algorithms, pluggable
 
----
 
-## Features
 
-* **Plug-and-play models**  
-  *YOLO-v8/9* or *DETR-R50* for detection, **CLIP** ViT-B/32 for Re-ID – add more in minutes.
-* <kbd>torch.compile</kbd>/<kbd>TensorRT</kbd> ready via the `compile()` hook.
-* Single-file **demo script** (`main.py`) – works with webcams, video files and RTSP streams.
-* Clean **type-hinted API** and optional drawing helpers for UI overlays.
-
----
 
 ## Installation
 
-```bash
-python -m venv .venv                # (optional, but recommended)
-source .venv/bin/activate           # Windows: .venv\Scripts\activate
-
-pip install --upgrade pip
-pip install -r requirements.txt     # see below
-```
-
-### Minimum requirements
-
-| Package          | Version (tested) |
-|------------------|------------------|
-| Python           | **3.9+**         |
-| PyTorch + torchvision | 2.2.0        |
-| torchvision      | 0.17.0           |
-| transformers     | 4.41.0           |
-| ultralytics      | 8.2.3            |
-| open-clip-torch  | 2.23.0           |
-| filterpy         | 1.4.5            |
-| opencv-python    | 4.10.0           |
-| scipy, numpy, pillow | latest       |
-
-> ℹ️ GPU is **optional** – CUDA, MPS and CPU have all been tested; expect lower FPS on pure CPU.
-
----
-
-## Repository layout
-
-```text
-.
-├── models.py                # BranesModel ➜ ODModel (YOLO/DETR) + ReIDModel (CLIP)
-├── tracker.py               # Core DeepSort implementation
-├── single_camera_tracker.py # High-level wrapper gluing everything together
-├── main.py                  # 20-line demo app (webcam ↔ video)
-└── README.md                # you are here ✨
-```
-
-### Key abstractions
-
-| Class                | Located in           | Responsibility                               |
-|----------------------|----------------------|----------------------------------------------|
-| `BranesModel`        | `models.py`          | Minimal interface (`predict`, `compile`, `config`) |
-| `ODModel`            | `models.py`          | Wraps **YOLO-v8/9** or **DETR** detectors     |
-| `ReIDModel`          | `models.py`          | CLIP encoder → (N,512) L2-normalised vectors  |
-| `_Track` (private)   | `tracker.py`         | Kalman + appearance state per identity        |
-| `DeepSort`           | `tracker.py`         | Online assignment & track management          |
-| `SingleCameraTracker`| `single_camera_tracker.py` | End-to-end tracking for one video stream |
-
----
-
-## Quick start
-
-Run the demo on a **webcam** (index 0) and save results to `out.mp4`:
+Clone the repo and install dependencies:
 
 ```bash
-python main.py --source 0 --out out.mp4
+git clone https://github.com/your-username/object-tracking-benchmark.git
+cd object-tracking-benchmark
+
+# install dependencies
+pip install -r requirements.txt
+
 ```
 
-Or track pedestrians in a video file:
+## Download COCO dataset
+
+To run benchmark you first need to download COCO dataset using util script **download_coco.py**
 
 ```bash
-python main.py --source path/to/video.mp4 --od detr --classes 0
+python -m branes_platform.utils.download_coco --root ./coco
 ```
 
-(The `--classes 0` flag keeps only the *person* class when using YOLO.)
+## Run benchmark
+To run benchmark use the script
 
-### Inside `main.py`
-
-```python
-from single_camera_tracker import SingleCameraTracker
-
-sct = SingleCameraTracker(
-    od_name="yolo",                # or 'detr'
-    tracker_kwargs=dict(
-        max_age=50,
-        iou_thres=0.4,
-        appearance_thres=0.5,
-    ),
-)
-
-tracks = sct.update(frame)          # detection ➜ DeepSort
-sct.draw(frame, tracks)             # annotate
+```bash
+python -m branes_platform.benchmarks.object_trackers.full_object_tracking_benchmark --coco-root ./coco  
 ```
 
----
+It benchmarks **FPS vs. number of detected objects** on the
+[COCO 2017 validation set](https://cocodataset.org/#download), measuring:
 
-## Extending the repo
+- **OD time (ms)** – detector forward  
+- **ReID time (ms)** – embedding extraction  
+- **Other tracker Python time (ms)** – association, Kalman filter, etc.  
+- **Total time (ms)** – end-to-end update() time  
+- **FPS mean**
 
-### Add a new detector
-1. Implement a small `elif` block inside **`ODModel.__init__`** to load weights.
-2. Make sure `predict()` returns a **(N,6) tensor** `[x1,y1,x2,y2,conf,cls]`.
-3. Update `__all__` if you want to re-export the wrapper.
+### Parameters
+Check the table below for all available arguments. You can run `python -m branes_platform.benchmarks.object_trackers.full_object_tracking_benchmark --help` to see the same list.
 
-### Swap in a different Re-ID backbone
-Same story – extend `ReIDModel` with your favourite ViT, OSNet, FastReID, etc.
-Just return **normalised** `(N,D)` embeddings from `predict()`.
-
-### Multi-camera tracking
-Build on top of `SingleCameraTracker` or feed multiple outputs into a higher-level fusion layer – PRs are welcome!
-
----
-
-## Benchmarks (RTX 4060-Laptop, 720p)
-
-| Detector | FPS (detection) | FPS (DeepSORT end-to-end) |
-|----------|-----------------|---------------------------|
-| YOLO-v8n | **78**          | **56**                    |
-| DETR-R50 | 16              | 12                        |
-| CPU only | 6 (8-core)      | 4                         |
-
-*(Numbers measured with PyTorch 2.2, CUDA 12.4, batch = 1.)*
-
----
-
-## Citation
-If you use this repository in your research, please cite the original Deep SORT paper:
-
-> W. Bewley, Z. Ge, L. Ott, F. Ramos and B. Upcroft, "Simple Online and Realtime Tracking with a Deep Association Metric," 2016 IEEE International Conference on Image Processing (ICIP), 2016, pp. 3464-3468.
+| Argument            | Default      | Description |
+|---------------------|--------------|-------------|
+| `--od-model`        | `yolo`       | Object detector model. Options: `yolo`, `detr`, `rtdetr`, `yolos`, `fasterrcnn`, `ssd300`. |
+| `--reid-model`      | `clip`       | Re-Identification model for appearance features. Examples: `clip`, `clip_vit_b32`, `dinov2_vits14`, `osnet`, `mobilenetv2`, `resnet18`. |
+| `--tracker`         | `deep_sort`  | Tracking algorithm. Choices: `deep_sort`, `oc_sort`, `bot_sort`, `bytetrack`, `sort`. |
+| `--weight`          | *None*       | Optional path to custom OD checkpoint (e.g., YOLO `.pt` weights). |
+| `--coco-root`       | *(required)* | Path to COCO 2017 dataset root (must contain `val2017/` and `annotations/`). |
+| `--device`          | `cuda:0`     | Device for inference (`cpu`, `cuda:0`, `mps`, etc.). |
+| `--conf-thres`      | `0.25`       | Detection confidence threshold. |
+| `--images-per-bin`  | `5`          | How many images to sample per object-count bin. |
+| `--repeats`         | `50`         | Number of `update()` calls per image (timed for FPS stats). |
+| `--max-objects`     | `20`         | Maximum object count bin to benchmark. |
+| `--warmup-iters`    | `3`          | Number of warmup iterations (ignored in results). |
+| `--compile-od`      | *flag*       | If set, compile OD model with `torch.compile`. |
+| `--compile-reid`    | *flag*       | If set, compile ReID model with `torch.compile`. |
+| `--tracker-kwargs`  | `{}`         | Tracker-specific overrides as JSON (e.g., `{"match_iou":0.3}`). |
 
 ---
-
-## License
-
-This project is licensed under the **MIT License** – see [`LICENSE`](LICENSE) for details.
