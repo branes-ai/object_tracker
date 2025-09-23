@@ -28,7 +28,7 @@ SUPPORTED_MODELS = [
     "dinov2_vits14",
     "vit_b_16",
     "resnet50_reid",
-    "osnet",
+    "osnet_x0_25",
     "mobilenetv2",
     "resnet18"
 

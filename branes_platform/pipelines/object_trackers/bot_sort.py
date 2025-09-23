@@ -139,7 +139,7 @@ class BoTSORT:
             total_timer = _Timer(torch.device("cpu"))  # tracker logic on CPU
             reid_timer = _Timer(self.reid.device)  # ReID on its device
             cmc_timer = _Timer(torch.device("cpu"))  # ORB/H is CPU
-        total_timer.start()
+            total_timer.start()
         if isinstance(detections, torch.Tensor):
             detections = detections.cpu().numpy()
         if detections.size == 0:
