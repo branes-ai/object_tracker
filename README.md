@@ -16,8 +16,8 @@ our modular wrappers:
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/your-username/object-tracking-benchmark.git
-cd object-tracking-benchmark
+git clone https://github.com/branes-ai/object-tracker.git
+cd object-tracker
 
 # install dependencies
 pip install -r requirements.txt
